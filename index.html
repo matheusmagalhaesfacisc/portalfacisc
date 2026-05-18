@@ -650,18 +650,11 @@
   // Cole a URL do Google Apps Script após publicá-lo
   const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwa0ZiQ8yY7U3mkeZb--PwfyHU3nzDfVxYoPeFehHnORLlluJHU3QCNegbzLWibCkgyMg/exec";
 
-  // Dashboards visíveis para TODOS os usuários autenticados.
-  // Para restringir por usuário, configure grupos no Apps Script.
-    const DASHBOARDS = [
-    {
-      title: "Monitoria de Qualidade",
-      desc: "Portal de acompanhamento e monitoramento de qualidade FACISC.",
-      icon: "📋",
-      color: "#E8F5EE",
-      tag: "Qualidade",
-      url: "https://matheusmagalhaesfacisc.github.io/monitoria-facisc/"
-    }
-  ];
+  // ⚠️ Os links dos dashboards NÃO ficam aqui.
+  // Eles são retornados pelo Google Apps Script somente após login válido.
+
+  // variável em memória — nunca salva em storage
+  let _dashboards = [];
 
   // ═══════════════════════════════════════════════════════════
   //  LÓGICA — não alterar
@@ -685,11 +678,14 @@
       const data = await res.json();
 
       if (data.ok) {
+        // Salva na sessão apenas nome/cargo — NUNCA os links
         sessionStorage.setItem("facisc_user", JSON.stringify({
           login: user,
           name: data.displayName || user,
           role: data.role || "Colaborador"
         }));
+        // Links ficam só em memória RAM da aba — somem ao fechar
+        _dashboards = data.dashboards || [];
         showPortal(data.displayName || user, data.role || "Colaborador");
       } else {
         showError(data.message || "Usuário ou senha incorretos.");
@@ -716,7 +712,12 @@
   }
 
   function renderCards() {
-    document.getElementById("dash-grid").innerHTML = DASHBOARDS.map(d => `
+    if (!_dashboards.length) {
+      document.getElementById("dash-grid").innerHTML =
+        '<p style="color:var(--text-mid);font-size:14px;">Nenhum dashboard disponível.</p>';
+      return;
+    }
+    document.getElementById("dash-grid").innerHTML = _dashboards.map(d => `
       <a class="dash-card" href="${d.url}" target="_blank" rel="noopener noreferrer">
         <div class="card-icon-wrap" style="background:${d.color}">${d.icon}</div>
         <div class="card-content">
@@ -733,6 +734,7 @@
 
   function doLogout() {
     sessionStorage.removeItem("facisc_user");
+    _dashboards = []; // limpa links da memória
     document.getElementById("portal-page").classList.remove("active");
     document.getElementById("login-page").style.display = "";
     document.getElementById("username").value = "";
